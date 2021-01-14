@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>腾讯地图标点动画实现</title>
+</head>
+<script charset="utf-8"
+    src="https://map.qq.com/api/js?v=2.exp&key=OB4BZ-D4W3U-B7VVO-4PJWW-6TKDJ-WPB77&libraries=visualization"></script>
+<style type="text/css">
+    html,
+    body {
+        height: 100%;
+        margin: 0px;
+        padding: 0px;
+    }
+
+    #container {
+        width: 100%;
+        height: 100%;
+    }
+
+    .point-online {
+        width: 32px;
+        height: 32px;
+        transform: scale(0.3);
+        background-color: #04B45F;
+        position: relative;
+        border-radius: 50%;
+    }
+
+    .point-offline {
+        width: 32px;
+        height: 32px;
+        transform: scale(0.3);
+        background-color: rgba(250, 173, 20, 1);
+        position: relative;
+        border-radius: 50%;
+    }
+
+    .point-abnormal {
+        width: 32px;
+        height: 32px;
+        transform: scale(0.3);
+        background-color: rgba(255, 0, 0, 1);
+        position: relative;
+        border-radius: 50%;
+    }
+
+    /* 设置动画前颜色 */
+    .point-flicker-offline:after {
+        background-color: rgba(250, 173, 20, 1);
+    }
+
+    /* 设置动画后颜色 */
+    .point-flicker-offline:before {
+        background-color: rgba(250, 173, 20, 0.2);
+    }
+
+    /* 设置动画 */
+    .point-flicker-offline:before,
+    .point-flicker-offline:after {
+        content: '';
+        width: 80px;
+        height: 80px;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        margin-left: -40px;
+        margin-top: -40px;
+        border-radius: 50%;
+        /* CSS3 animation 属性 网址 */
+        /* https://www.w3school.com.cn/cssref/pr_animation.asp */
+        animation: warn 1.5s ease-out 0s infinite;
+    }
+
+    /* 设置动画前颜色 */
+    .point-flicker-abnormal:after {
+        background-color: rgba(255, 0, 0, 1);
+    }
+
+    /* 设置动画后颜色 */
+    .point-flicker-abnormal:before {
+        background-color: rgba(255, 0, 0, 0.2);
+    }
+
+    /* 设置动画 */
+    .point-flicker-abnormal:before,
+    .point-flicker-abnormal:after {
+        content: '';
+        width: 80px;
+        height: 80px;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        margin-left: -40px;
+        margin-top: -40px;
+        border-radius: 50%;
+        /* CSS3 animation 属性 网址 */
+        /* https://www.w3school.com.cn/cssref/pr_animation.asp */
+        animation: warn 1.5s ease-out 0s infinite;
+    }
+
+    .circle {
+        width: 14px;
+        height: 14px;
+        float: left;
+        border-radius: 50%;
+        margin-top: 3px;
+        margin-right: 10px;
+    }
+
+    .green {
+        background-color: #04B45F;
+    }
+
+    .gray {
+        background-color: #faad14;
+    }
+
+    .red {
+        background-color: #FF0000;
+    }
+
+    .explain-green {
+        color: #04B45F;
+    }
+
+    .explain-gray {
+        color: #faad14;
+    }
+
+    .explain-red {
+        color: #FF0000;
+    }
+
+    /* @keyframes 规则用于创建动画。在 @keyframes 中规定某项 CSS 样式，就能创建由当前样式逐渐改为新样式的动画效果。 */
+    @keyframes warn {
+        0% {
+            transform: scale(0.5);
+            opacity: 1;
+        }
+
+        30% {
+            opacity: 1;
+        }
+
+        100% {
+            transform: scale(1.4);
+            opacity: 0;
+        }
+    }
+</style>
+
+<body onload="initMap()">
+    <div id="container"></div>
+    <script>
+        function initMap() {
+            var center = new qq.maps.LatLng(23.12908, 113.26436);
+            //初始化地图
+            var map = new qq.maps.Map("container", {
+                minZoom: 4, //缩放级别,范围6-18，18放大倍数最高
+                maxZoom: 18,
+                center: center, //设置地图中心点坐标
+                mapStyleId: "DARK" //个性化样式
+            });
+            //自定义控件 - 地图散点颜色说明
+            var customZoomDiv = document.createElement("div");
+            customZoomDiv.style.cssText = "padding:5px;border:2px solid #86acf2;background:#ffffff";
+            customZoomDiv.index = 1; //设置在当前布局中的位置
+            function update() {
+                customZoomDiv.innerHTML =
+                    '<div class="explain"><div class="circle green"></div><span class="explain-green">在线</span></div>' +
+                    '<div class="explain"><div class="circle gray"></div><span class="explain-gray">紧急</span></div>' +
+                    '<div class="explain"><div class="circle red"></div><span class="explain-red">异常</span></div>';
+            }
+            qq.maps.event.addListener(map, "zoom_changed", update);
+            update();
+            map.controls[qq.maps.ControlPosition.RIGHT_BOTTOM].push(customZoomDiv);
+
+            renderMarkerMap(map);
+
+
+            //初始化散点图并添加至map图层
+        }
+
+        function renderMarkerMap(map) {
+            //创建散点图对象
+            var str =
+                '[{"lat":"28.226970","lng":"112.32419","type":"online"},{"lat":"31.353637","lng":"121.201172","type":"online"},' +
+                '{"lat":"24.48405","lng":"118.03394","type":"offline"},' +
+                '{"lat":"23.12908","lng":"113.26436","type":"abnormal"}]';
+
+            var coordinate = JSON.parse(str);
+            coordinate.forEach(v => {
+                let marker = createMarkerMap(map, v);
+            })
+        }
+
+        function createMarkerMap(map, v) {
+            var content =
+                `<div style="width: 32px; height: 32px;"><div class="point-${v.type} point-flicker-${v.type}"></div></div>`;
+            var decoration = new qq.maps.MarkerDecoration(content);
+            var icon = new qq.maps.MarkerImage("./map_pin_blank.png");
+            marker = new qq.maps.Marker({
+                position: new qq.maps.LatLng(v.lat, v.lng),
+                map: map,
+                icon: icon,
+                decoration: decoration // 初始化Marker的decoration属性
+            });
+            return marker
+        }
+        //创建散点图对象
+        function createDotsMap(map) {
+            var dots = new qq.maps.visualization.Dots({
+                map: map, // 必填参数，指定显示散点图的地图对象
+                style: {
+                    fillColor: "#3CF",
+                    strokeColor: "#00C",
+                    strokeWidth: 1,
+                    radius: 8
+                }
+            });
+            // 获取散点数据
+            getDotsData(dots);
+        }
+
+        function getDotsData(dots) {
+            // 测试数据
+            // 获取散点数据
+            var str =
+                '[{"lat":"28.226970","lng":"112.32419","type":"online"},{"lat":"31.353637","lng":"121.201172","type":"online"},' +
+                '{"lat":"24.48405","lng":"118.03394","type":"offline"},' +
+                '{"lat":"23.12908","lng":"113.26436","type":"abnormal"}]';
+
+            var coordinate = JSON.parse(str);
+            dots.setData(coordinate);
+            var groupBy = "type";
+            dots.setGroupStyle("online", {
+                fillColor: "#04B45F",
+            });
+            dots.setGroupStyle("offline", {
+                fillColor: {
+                    0: "rgba(250,173,20, 1)",
+                    0.2: "rgba(250,173,20, 0.5)",
+                    0.5: "rgba(250,173,20, 0.3)",
+                    1: "rgba(250,173,20, 0)"
+                },
+                strokeWidth: 0,
+                radius: 20
+            });
+            dots.setGroupStyle("abnormal", {
+                fillColor: {
+                    0: "rgba(255, 0, 0, 1)",
+                    0.2: "rgba(255, 0, 0, 0.5)",
+                    0.5: "rgba(255, 0, 0, 0.3)",
+                    1: "rgba(255, 0, 0, 0)"
+                },
+                strokeWidth: 0,
+                radius: 30
+            });
+            dots.setGroupStyle("default", {
+                fillColor: "rgba(255, 0, 0, 0)"
+            });
+            dots.setGroupBy(groupBy);
+
+            //请求数据
+
+        }
+    </script>
+</body>
+
+</html>
